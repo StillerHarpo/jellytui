@@ -21,7 +21,7 @@ impl Config {
         BaseDirs::new().map(
             |base_dirs| base_dirs
                 .config_dir()
-                .join("jftui")
+                .join("jellytui")
                 .join("config.toml"))
     }
 

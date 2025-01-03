@@ -138,7 +138,7 @@ impl Jellyfin {
             .map(|base_dirs| {
                 base_dirs
                     .data_local_dir()
-                    .join("jftui")
+                    .join("jellytui")
                     .join("cache.json")
             })
             .unwrap();
@@ -226,7 +226,7 @@ impl Jellyfin {
         let response = self.client
             .post(format!("{}/Users/AuthenticateByName", self.config.server_url))
             .header("X-Emby-Authorization", format!(
-                "MediaBrowser Client=\"jftui\", Device=\"{}\", DeviceId=\"tui\", Version=\"1.0.0\"",
+                "MediaBrowser Client=\"jellytui\", Device=\"{}\", DeviceId=\"tui\", Version=\"1.0.0\"",
                 device_name
             ))
             .json(&auth_request)
@@ -252,7 +252,7 @@ impl Jellyfin {
             .map(|base_dirs| {
                 base_dirs
                     .data_local_dir()
-                    .join("jftui")
+                    .join("jellytui")
                     .join("cache.json")
             })
             .unwrap();
@@ -654,7 +654,7 @@ impl Jellyfin {
                 .map(|base_dirs| {
                     base_dirs
                         .data_local_dir()
-                        .join("jftui")
+                        .join("jellytui")
                         .join("cache.json")
                 })
                 .unwrap(),

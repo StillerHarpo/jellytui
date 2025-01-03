@@ -1,10 +1,10 @@
 [package]
-name = "jftui"
-version = "0.1.2"
+name = "jellytui"
+version = "0.1.3"
 edition = "2021"
 license = "GPL-3.0"
 description = "A terminal user interface for Jellyfin, using MPV"
-repository = "https://github.com/tyrantlink/jftui"
+repository = "https://github.com/tyrantlink/jellytui"
 
 [dependencies]
 anyhow = "1.0"
@@ -31,5 +31,5 @@ codegen-units = 1
 panic = "abort"
 
 [[bin]]
-name = "jftui"
+name = "jellytui"
 path = "src/main.rs"

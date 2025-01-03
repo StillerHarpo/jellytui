@@ -1,4 +1,4 @@
-jftui is a simple TUI for Jellyfin for browsing media, and playing it through mpv
+jellytui is a simple TUI for Jellyfin for browsing media, and playing it through mpv
 
 Support for Linux and Mac, Windows and other BSD support is untested.
 
@@ -8,21 +8,21 @@ Support for Linux and Mac, Windows and other BSD support is untested.
 ## Installation
 ### Cargo
 ```sh
-cargo install jftui
+cargo install jellytui
 ```
 
 ### From source
 ```sh
-git clone https://github.com/tyrantlink/jftui
-cd jftui
+git clone https://github.com/tyrantlink/jellytui
+cd jellytui
 cargo build --release
 ```
 
 ## Usage
 ```sh
-jftui
+jellytui
 ```
-On first run, you will be prompted to enter your Jellyfin server URL, username, and password. This information will be stored in `$XDG_CONFIG_HOME/jftui/config.toml` or `$HOME/.config/jftui/config.toml`.
+On first run, you will be prompted to enter your Jellyfin server URL, username, and password. This information will be stored in `$XDG_CONFIG_HOME/jellytui/config.toml` or `$HOME/.config/jellytui/config.toml`.
 
 ## Keybindings
 - `Ctrl + c`: Exit
