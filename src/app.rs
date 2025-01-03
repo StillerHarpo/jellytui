@@ -362,6 +362,7 @@ impl App {
                     Some(self.jellyfin.get_episodes_from_series(&item.id));
             }
             KeyCode::Esc => {
+                self.set_index(0);
                 self.selection_state = SelectionState::Main;
                 self.episode_selection.series = None;
                 self.episode_selection.episodes = None;
