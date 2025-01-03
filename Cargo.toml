@@ -1,6 +1,6 @@
 [package]
 name = "jftui"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "GPL-3.0"
 description = "A terminal user interface for Jellyfin, using MPV"
@@ -8,19 +8,20 @@ repository = "https://github.com/tyrantlink/jftui"
 
 [dependencies]
 anyhow = "1.0"
-crossterm = "0.27"
-ratatui = "0.24"
-reqwest = { version = "0.11", features = ["json", "blocking", "rustls-tls"], default-features = false }
+check-latest = "1.0"
+chrono = "0.4"
+crossterm = "0.28"
+directories = "5.0"
+fuzzy-matcher = "0.3"
+hostname = "0.4"
+itertools = "0.14"
+ratatui = "0.29"
+reqwest = { version = "0.12", features = ["json", "blocking", "rustls-tls"], default-features = false }
+rpassword = "7.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", default-features = false }
-fuzzy-matcher = "0.3"
-directories = "5.0"
-toml = { version = "0.8", default-features = false, features = ["parse", "display"] }
-rpassword = "7.3"
-itertools = "0.12"
 textwrap = "0.16"
-chrono = "0.4"
-hostname = "0.3"
+toml = { version = "0.8", default-features = false, features = ["parse", "display"] }
 
 [profile.release]
 strip = true

@@ -248,7 +248,7 @@ impl App {
             let main_chunks = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
-                .split(frame.size());
+                .split(frame.area());
 
             self.draw_media_panel(frame, main_chunks[0], self.selected_item());
 
@@ -733,7 +733,7 @@ impl App {
             }
         }
 
-        let area = frame.size();
+        let area = frame.area();
         let popup_width = 60.min(area.width - 4);
         let popup_height = 6.min(area.height - 4);
 
