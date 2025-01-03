@@ -34,7 +34,7 @@ struct JellyfinUser {
 #[derive(Debug, Deserialize, Clone)]
 struct JellyfinUserConfig {
     #[serde(rename = "AudioLanguagePreference")]
-    audio_language_preference: String,
+    audio_language_preference: Option<String>,
     #[serde(rename = "PlayDefaultAudioTrack")]
     play_default_audio_track: bool,
     #[serde(rename = "SubtitleLanguagePreference")]
@@ -159,7 +159,28 @@ impl Jellyfin {
         };
 
         println!("Authenticating...");
-        jellyfin.authenticate()?;
+        match jellyfin.authenticate() {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Failed to authenticate: {}", e);
+
+                if !jellyfin.config.is_new {
+                    print!("Would you like to delete the current configuration? (y/n):\n> ");
+
+                    std::io::stdout().flush()?;
+                    let mut delete = String::new();
+                    std::io::stdin().read_line(&mut delete)?;
+
+                    if delete.trim().to_lowercase() != "y" {
+                        std::process::exit(1);
+                    }
+
+                    println!("Deleting configuration... run again to reconfigure");
+                }
+                Config::delete()?;
+                std::process::exit(1);
+            }
+        }
         println!("Fetching media... this may take a while on the first run");
         jellyfin.fetch_all_media()?;
         println!("Fetching home sections...");
@@ -210,6 +231,16 @@ impl Jellyfin {
             ))
             .json(&auth_request)
             .send()?;
+
+        match response.status() {
+            StatusCode::UNAUTHORIZED => {
+                return Err(anyhow::anyhow!("401: Invalid username or password"));
+            }
+            StatusCode::FORBIDDEN => {
+                return Err(anyhow::anyhow!("403: Access to server denied"));
+            }
+            _ => {}
+        }
 
         self.auth = Some(response.json::<AuthResponse>()?);
 
@@ -427,10 +458,11 @@ impl Jellyfin {
             ))
             .arg(format!("--input-ipc-server={}", socket_path));
 
-        if !auth.user.config.play_default_audio_track {
+        if !auth.user.config.play_default_audio_track &&
+            auth.user.config.audio_language_preference.is_some() {
             command.arg(format!(
                 "--alang={}",
-                auth.user.config.audio_language_preference
+                auth.user.config.audio_language_preference.unwrap()
             ));
         }
 

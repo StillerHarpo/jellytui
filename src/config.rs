@@ -12,12 +12,17 @@ use toml::{from_str, to_string};
 pub struct Config {
     pub server_url: String,
     pub username: String,
-    pub password: String
+    pub password: String,
+    pub is_new: bool,
 }
 
 impl Config {
     pub fn config_path() -> Option<PathBuf> {
-        BaseDirs::new().map(|base_dirs| base_dirs.config_dir().join("jftui.conf"))
+        BaseDirs::new().map(
+            |base_dirs| base_dirs
+                .config_dir()
+                .join("jftui")
+                .join("config.toml"))
     }
 
     pub fn load() -> Result<Self> {
@@ -26,15 +31,29 @@ impl Config {
 
         if !config_path.exists() {
             let config = Self::create_initial_config()?;
-            let toml = to_string(&config)?;
+            let toml = to_string(&config)?.replace("\nis_new = true", "");
             std::fs::create_dir_all(config_path.parent().unwrap())?;
             std::fs::write(&config_path, toml)?;
+
             return Ok(config);
         }
 
-        let contents = std::fs::read_to_string(config_path)?;
+        let mut contents = std::fs::read_to_string(config_path)?;
+        contents.push_str("\nis_new = false");
         let config: Config = from_str(&contents)?;
+
         Ok(config)
+    }
+
+    pub fn delete() -> Result<()> {
+        let config_path = Self::config_path()
+            .ok_or_else(|| anyhow::anyhow!("Could not determine config directory"))?;
+
+        if config_path.exists() {
+            std::fs::remove_file(config_path)?;
+        }
+
+        Ok(())
     }
 
     fn create_initial_config() -> Result<Self> {
@@ -65,6 +84,7 @@ impl Config {
             server_url,
             username,
             password,
+            is_new: true,
         })
     }
 }
