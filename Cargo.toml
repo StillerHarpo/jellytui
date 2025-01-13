@@ -1,6 +1,6 @@
 [package]
 name = "jellytui"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 license = "GPL-3.0"
 description = "A terminal user interface for Jellyfin, using MPV"

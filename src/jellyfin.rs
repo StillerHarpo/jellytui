@@ -147,13 +147,17 @@ impl Jellyfin {
             std::fs::create_dir_all(parent)?;
         }
 
+        let config = Config::load()?;
+
         let mut jellyfin = Jellyfin {
             items: HashMap::new(),
             continue_watching: Vec::new(),
             next_up: Vec::new(),
             latest_added: Vec::new(),
-            client: Client::new(),
-            config: Config::load()?,
+            client: Client::builder()
+                .danger_accept_invalid_certs(config.accept_self_signed)
+                .build()?,
+            config: config,
             auth: None,
             mpv_processes: Arc::new(Mutex::new(Vec::new())),
         };

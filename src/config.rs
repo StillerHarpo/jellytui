@@ -10,10 +10,25 @@ use toml::{from_str, to_string};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
+    #[serde(default)]
+    pub accept_self_signed: bool,
     pub server_url: String,
     pub username: String,
     pub password: String,
+    #[serde(default)]
     pub is_new: bool,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            accept_self_signed: false,
+            server_url: String::new(),
+            username: String::new(),
+            password: String::new(),
+            is_new: false,
+        }
+    }
 }
 
 impl Config {
@@ -60,6 +75,12 @@ impl Config {
         print!("\x1B[2J\x1B[1;1H");
         println!("Config file not found");
 
+        print!("Does your server have a self-signed https certificate? [y/n]\n> ");
+        io::stdout().flush()?;
+        let mut accept_self_signed = String::new();
+        io::stdin().read_line(&mut accept_self_signed)?;
+        let accept_self_signed = accept_self_signed.trim().to_string().to_lowercase() == "y";
+
         print!("Please enter the URL of your Jellyfin server. Example: http://foobar.baz:8096/jf\n\
                (note: unless specified, ports will be the protocol's defaults, i.e. 80 for HTTP and 443 for HTTPS)\n> ");
         io::stdout().flush()?;
@@ -81,6 +102,7 @@ impl Config {
         io::stdout().flush()?;
 
         Ok(Config {
+            accept_self_signed,
             server_url,
             username,
             password,
