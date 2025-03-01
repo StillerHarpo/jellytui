@@ -30,7 +30,7 @@ On first run, you will be prompted to enter your Jellyfin server URL, username, 
 - `Arrow keys`: Navigate, up and down to scroll, left and right to change pages
 - `Page Up` | `Page Down`: Scroll up and down one page
 - `Enter`: Play media, or list episodes series
-- `Escape`: Exit episode list
+- `Escape`: Exit episode list or program
 - `Ctrl + e`: Toggle episode inclusion in search results
 - Any other key: Search, backspace to delete characters, ctrl + backspace to clear search
 
