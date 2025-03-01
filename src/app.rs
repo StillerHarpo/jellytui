@@ -49,6 +49,8 @@ enum Page {
     ContinueWatching,
     NextUp,
     LatestAdded,
+    AllMovies,
+    AllSeries,
 }
 
 #[derive(PartialEq)]
@@ -189,6 +191,8 @@ impl App {
                 Page::ContinueWatching => &self.jellyfin.continue_watching,
                 Page::NextUp => &self.jellyfin.next_up,
                 Page::LatestAdded => &self.jellyfin.latest_added,
+                Page::AllMovies => &self.movies,
+                Page::AllSeries => &self.series,
                 _ => &self.filtered,
             },
             SelectionState::Episode => {
@@ -268,12 +272,16 @@ impl App {
                 SelectionState::Main => {
                     // merge right chunks into one for single page
                     // ? right chunks are split beforehand so that they stay aligned with the left panel
-                    self.draw_main(frame, ratatui::prelude::Rect {
-                        x: right_top_chunks[1].x,
-                        y: right_top_chunks[1].y,
-                        width: right_top_chunks[1].width,
-                        height: right_top_chunks[1].height + right_chunks[1].height,
-                    }, SelectionState::Main)
+                    self.draw_main(
+                        frame,
+                        ratatui::prelude::Rect {
+                            x: right_top_chunks[1].x,
+                            y: right_top_chunks[1].y,
+                            width: right_top_chunks[1].width,
+                            height: right_top_chunks[1].height + right_chunks[1].height,
+                        },
+                        SelectionState::Main,
+                    )
                 }
                 SelectionState::Episode => {
                     self.draw_main(frame, right_top_chunks[1], SelectionState::Main);
@@ -396,9 +404,11 @@ impl App {
                 }
 
                 match self.page {
-                    Page::ContinueWatching => self.page = Page::LatestAdded,
+                    Page::ContinueWatching => self.page = Page::AllSeries,
                     Page::NextUp => self.page = Page::ContinueWatching,
                     Page::LatestAdded => self.page = Page::NextUp,
+                    Page::AllMovies => self.page = Page::LatestAdded,
+                    Page::AllSeries => self.page = Page::AllMovies,
                     Page::All => {
                         self.page = {
                             if self.config.include_episodes {
@@ -422,7 +432,9 @@ impl App {
                 match self.page {
                     Page::ContinueWatching => self.page = Page::NextUp,
                     Page::NextUp => self.page = Page::LatestAdded,
-                    Page::LatestAdded => self.page = Page::ContinueWatching,
+                    Page::LatestAdded => self.page = Page::AllMovies,
+                    Page::AllMovies => self.page = Page::AllSeries,
+                    Page::AllSeries => self.page = Page::ContinueWatching,
                     Page::All => self.page = Page::Movies,
                     Page::Movies => self.page = Page::Series,
                     Page::Series => {
@@ -660,6 +672,8 @@ impl App {
                         ("Continue Watching", Page::ContinueWatching),
                         ("Next Up", Page::NextUp),
                         ("Latest Added", Page::LatestAdded),
+                        ("Movies", Page::AllMovies),
+                        ("Series", Page::AllSeries),
                     ]
                 } else {
                     vec![
