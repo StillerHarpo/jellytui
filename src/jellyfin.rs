@@ -13,7 +13,7 @@ use reqwest::blocking::{Client, RequestBuilder, Response};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
-use crate::config::ConfigWithPassword;
+use crate::config::Config;
 
 #[derive(Debug, Deserialize, Clone)]
 struct AuthResponse {
@@ -98,7 +98,7 @@ pub struct Jellyfin {
     pub next_up: Vec<MediaItem>,
     pub latest_added: Vec<MediaItem>,
     client: Client,
-    config_with_password: ConfigWithPassword,
+    config: Config,
     auth: Option<AuthResponse>,
     mpv_processes: Arc<Mutex<Vec<Child>>>,
 }
@@ -147,7 +147,7 @@ impl Jellyfin {
             std::fs::create_dir_all(parent)?;
         }
 
-        let config_with_password = ConfigWithPassword::load()?;
+        let config = Config::load()?;
 
         let mut jellyfin = Jellyfin {
             items: HashMap::new(),
@@ -155,9 +155,9 @@ impl Jellyfin {
             next_up: Vec::new(),
             latest_added: Vec::new(),
             client: Client::builder()
-                .danger_accept_invalid_certs(config_with_password.config.accept_self_signed)
+                .danger_accept_invalid_certs(config.accept_self_signed)
                 .build()?,
-            config_with_password,
+            config: config,
             auth: None,
             mpv_processes: Arc::new(Mutex::new(Vec::new())),
         };
@@ -168,7 +168,7 @@ impl Jellyfin {
             Err(e) => {
                 eprintln!("Failed to authenticate: {}", e);
 
-                if !jellyfin.config_with_password.is_new {
+                if !jellyfin.config.is_new {
                     print!("Would you like to delete the current configuration? (y/n):\n> ");
 
                     std::io::stdout().flush()?;
@@ -181,7 +181,7 @@ impl Jellyfin {
 
                     println!("Deleting configuration... run again to reconfigure");
                 }
-                ConfigWithPassword::delete()?;
+                Config::delete()?;
                 std::process::exit(1);
             }
         }
@@ -223,12 +223,12 @@ impl Jellyfin {
             .unwrap_or_else(|_| "unknown-device".to_string());
 
         let auth_request = serde_json::json!({
-            "Username": self.config_with_password.config.username,
-            "Pw": self.config_with_password.password
+            "Username": self.config.username,
+            "Pw": self.config.password
         });
 
         let response = self.client
-            .post(format!("{}/Users/AuthenticateByName", self.config_with_password.config.server_url))
+            .post(format!("{}/Users/AuthenticateByName", self.config.server_url))
             .header("X-Emby-Authorization", format!(
                 "MediaBrowser Client=\"jellytui\", Device=\"{}\", DeviceId=\"tui\", Version=\"1.0.0\"",
                 device_name
@@ -273,7 +273,7 @@ impl Jellyfin {
                 self.client
                     .get(format!(
                         "{}/Users/{}/Items",
-                        self.config_with_password.config.server_url,
+                        self.config.server_url,
                         &self.auth.as_ref().unwrap().user.id
                     ))
                     .query(&[
@@ -306,7 +306,7 @@ impl Jellyfin {
                 self.client
                     .get(format!(
                         "{}/Users/{}/Items/Resume",
-                        self.config_with_password.config.server_url, user_id
+                        self.config.server_url, user_id
                     ))
                     .query(&[
                         ("Limit", "12"),
@@ -322,10 +322,7 @@ impl Jellyfin {
         self.next_up = self
             .request(
                 self.client
-                    .get(format!(
-                        "{}/Shows/NextUp",
-                        self.config_with_password.config.server_url
-                    ))
+                    .get(format!("{}/Shows/NextUp", self.config.server_url))
                     .query(&[
                         ("UserId", user_id.as_str()),
                         ("Limit", "12"),
@@ -343,7 +340,7 @@ impl Jellyfin {
                 self.client
                     .get(format!(
                         "{}/Users/{}/Items",
-                        self.config_with_password.config.server_url, user_id
+                        self.config.server_url, user_id
                     ))
                     .query(&[
                         ("Limit", "12"),
@@ -391,7 +388,7 @@ impl Jellyfin {
                 self.client
                     .post(format!(
                         "{}/Items/{}/PlaybackInfo",
-                        self.config_with_password.config.server_url, item.id
+                        self.config.server_url, item.id
                     ))
                     .json(&serde_json::json!({
                         "DeviceProfile": {
@@ -415,10 +412,7 @@ impl Jellyfin {
             .first()
             .ok_or_else(|| anyhow::anyhow!("No media source available"))?;
 
-        let position_url = format!(
-            "{}/UserItems/{}/UserData",
-            self.config_with_password.config.server_url, item.id
-        );
+        let position_url = format!("{}/UserItems/{}/UserData", self.config.server_url, item.id);
 
         let position_ticks = self
             .request(self.client.get(&position_url))?
@@ -435,7 +429,7 @@ impl Jellyfin {
 
         let stream_url = format!(
             "{}/Videos/{}/stream?static=true&mediaSourceId={}&tag={}",
-            self.config_with_password.config.server_url, item.id, item.id, auth.access_token
+            self.config.server_url, item.id, item.id, auth.access_token
         );
 
         let title = if item.type_ == "Episode" {
@@ -468,9 +462,8 @@ impl Jellyfin {
             ))
             .arg(format!("--input-ipc-server={}", socket_path));
 
-        if !auth.user.config.play_default_audio_track
-            && auth.user.config.audio_language_preference.is_some()
-        {
+        if !auth.user.config.play_default_audio_track &&
+            auth.user.config.audio_language_preference.is_some() {
             command.arg(format!(
                 "--alang={}",
                 auth.user.config.audio_language_preference.unwrap()
@@ -575,7 +568,7 @@ impl Jellyfin {
                                 self.client
                                     .post(format!(
                                         "{}/Sessions/Playing/Progress",
-                                        self.config_with_password.config.server_url
+                                        self.config.server_url
                                     ))
                                     .json(&serde_json::json!({
                                         "ItemId": item.id,
@@ -607,7 +600,7 @@ impl Jellyfin {
                                 self.client
                                     .post(format!(
                                         "{}/Sessions/Playing/Progress",
-                                        self.config_with_password.config.server_url
+                                        self.config.server_url
                                     ))
                                     .json(&serde_json::json!({
                                         "ItemId": item.id,
@@ -646,7 +639,7 @@ impl Jellyfin {
             self.client
                 .post(format!(
                     "{}/Sessions/Playing/Stopped",
-                    self.config_with_password.config.server_url
+                    self.config.server_url
                 ))
                 .json(&serde_json::json!({
                     "ItemId": item.id,
