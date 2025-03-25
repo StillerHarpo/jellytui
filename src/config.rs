@@ -1,5 +1,6 @@
 use std::io;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -32,16 +33,13 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn config_path() -> Option<PathBuf> {
-        BaseDirs::new().map(
-            |base_dirs| base_dirs
-                .config_dir()
-                .join("jellytui")
-                .join("config.toml"))
+    pub fn config_path(base_path: Option<&Path>) -> Option<PathBuf> {
+        base_path.map(|p| p.join("config.toml")).or(BaseDirs::new()
+            .map(|base_dirs| base_dirs.config_dir().join("jellytui").join("config.toml")))
     }
 
-    pub fn load() -> Result<Self> {
-        let config_path = Self::config_path()
+    pub fn load(base_path: Option<&Path>) -> Result<Self> {
+        let config_path = Self::config_path(base_path)
             .ok_or_else(|| anyhow::anyhow!("Could not determine config directory"))?;
 
         if !config_path.exists() {
@@ -60,8 +58,8 @@ impl Config {
         Ok(config)
     }
 
-    pub fn delete() -> Result<()> {
-        let config_path = Self::config_path()
+    pub fn delete(base_path: Option<&Path>) -> Result<()> {
+        let config_path = Self::config_path(base_path)
             .ok_or_else(|| anyhow::anyhow!("Could not determine config directory"))?;
 
         if config_path.exists() {

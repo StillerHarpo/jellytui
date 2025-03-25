@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -101,6 +102,7 @@ pub struct Jellyfin {
     config: Config,
     auth: Option<AuthResponse>,
     mpv_processes: Arc<Mutex<Vec<Child>>>,
+    cache_path: PathBuf,
 }
 
 impl MediaItem {
@@ -132,22 +134,23 @@ impl MediaItem {
 }
 
 impl Jellyfin {
-    pub fn new() -> Result<Self> {
+    pub fn new(base_path: Option<&Path>) -> Result<Self> {
         // cache directory init
-        let cache_path = BaseDirs::new()
-            .map(|base_dirs| {
+        let cache_path = base_path
+            .map(|p| p.join("cache.json"))
+            .or(BaseDirs::new().map(|base_dirs| {
                 base_dirs
                     .data_local_dir()
                     .join("jellytui")
                     .join("cache.json")
-            })
+            }))
             .unwrap();
 
         if let Some(parent) = cache_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
 
-        let config = Config::load()?;
+        let config = Config::load(base_path)?;
 
         let mut jellyfin = Jellyfin {
             items: HashMap::new(),
@@ -157,9 +160,10 @@ impl Jellyfin {
             client: Client::builder()
                 .danger_accept_invalid_certs(config.accept_self_signed)
                 .build()?,
-            config: config,
+            config,
             auth: None,
             mpv_processes: Arc::new(Mutex::new(Vec::new())),
+            cache_path,
         };
 
         println!("Authenticating...");
@@ -181,7 +185,7 @@ impl Jellyfin {
 
                     println!("Deleting configuration... run again to reconfigure");
                 }
-                Config::delete()?;
+                Config::delete(base_path)?;
                 std::process::exit(1);
             }
         }
@@ -252,16 +256,7 @@ impl Jellyfin {
     }
 
     fn fetch_all_media(&mut self) -> Result<()> {
-        let cache_path = BaseDirs::new()
-            .map(|base_dirs| {
-                base_dirs
-                    .data_local_dir()
-                    .join("jellytui")
-                    .join("cache.json")
-            })
-            .unwrap();
-
-        if let Ok(cached) = fs::read_to_string(&cache_path) {
+        if let Ok(cached) = fs::read_to_string(&self.cache_path) {
             if let Ok(items) = serde_json::from_str::<HashMap<String, MediaItem>>(&cached) {
                 self.items = items;
                 return Ok(());
@@ -293,7 +288,7 @@ impl Jellyfin {
             .map(|item| (item.id.clone(), item))
             .collect();
 
-        fs::write(cache_path, serde_json::to_string(&self.items)?)?;
+        fs::write(&self.cache_path, serde_json::to_string(&self.items)?)?;
 
         Ok(())
     }
@@ -462,8 +457,9 @@ impl Jellyfin {
             ))
             .arg(format!("--input-ipc-server={}", socket_path));
 
-        if !auth.user.config.play_default_audio_track &&
-            auth.user.config.audio_language_preference.is_some() {
+        if !auth.user.config.play_default_audio_track
+            && auth.user.config.audio_language_preference.is_some()
+        {
             command.arg(format!(
                 "--alang={}",
                 auth.user.config.audio_language_preference.unwrap()
@@ -653,16 +649,7 @@ impl Jellyfin {
     }
 
     pub fn refresh_cache(&mut self) -> Result<()> {
-        fs::remove_file(
-            BaseDirs::new()
-                .map(|base_dirs| {
-                    base_dirs
-                        .data_local_dir()
-                        .join("jellytui")
-                        .join("cache.json")
-                })
-                .unwrap(),
-        )?;
+        fs::remove_file(&self.cache_path)?;
 
         self.fetch_all_media()?;
         self.fetch_home_sections()?;
