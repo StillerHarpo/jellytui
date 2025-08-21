@@ -14,9 +14,9 @@ pub fn run_app(
     mut opt_terminal: Option<&mut DefaultTerminal>,
     path: Option<&Path>,
     config: Config,
-    render_outer: fn(&mut Frame) -> Rect,
+    render_outer: impl Fn(&mut Frame) -> Rect,
 ) -> Result<()> {
-    let jellyfin = Jellyfin::new(path, config, &mut opt_terminal, render_outer)?;
+    let jellyfin = Jellyfin::new(path, config, &mut opt_terminal, &render_outer)?;
 
     let mut app = App::new(jellyfin)?;
 
@@ -24,7 +24,7 @@ pub fn run_app(
         Some(terminal) => terminal,
         None => &mut ratatui::init(),
     };
-    app.run(&mut terminal, render_outer)?;
+    app.run(&mut terminal, &render_outer)?;
 
     Ok(())
 }

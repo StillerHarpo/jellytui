@@ -137,7 +137,7 @@ impl App {
     pub fn run(
         &mut self,
         terminal: &mut DefaultTerminal,
-        render_outer: fn(&mut Frame) -> Rect,
+        render_outer: impl Fn(&mut Frame) -> Rect,
     ) -> Result<()> {
         // init terminal
         enable_raw_mode()?;
@@ -145,7 +145,7 @@ impl App {
         execute!(stdout, EnterAlternateScreen)?;
 
         loop {
-            self.draw(terminal, render_outer)?;
+            self.draw(terminal, &render_outer)?;
             if self.handle_action()? {
                 continue;
             }
@@ -252,7 +252,7 @@ impl App {
     fn draw(
         &mut self,
         terminal: &mut DefaultTerminal,
-        render_outer: fn(&mut Frame) -> Rect,
+        render_outer: impl Fn(&mut Frame) -> Rect,
     ) -> Result<()> {
         terminal.draw(|frame| {
             let inner_area = render_outer(frame);

@@ -140,7 +140,7 @@ impl Jellyfin {
         base_path: Option<&Path>,
         config: Config,
         opt_terminal: &mut Option<&mut DefaultTerminal>,
-        render_outer: fn(&mut Frame) -> Rect,
+        render_outer: impl Fn(&mut Frame) -> Rect,
     ) -> Result<Self> {
         // cache directory init
         let cache_path = base_path
