@@ -134,7 +134,7 @@ impl App {
         Ok(app)
     }
 
-    pub fn run(
+    pub async fn run(
         &mut self,
         terminal: &mut DefaultTerminal,
         render_outer: impl Fn(&mut Frame) -> Rect,
@@ -146,7 +146,7 @@ impl App {
 
         loop {
             self.draw(terminal, &render_outer)?;
-            if self.handle_action()? {
+            if self.handle_action().await? {
                 continue;
             }
             if !self.handle_input()? {
@@ -464,14 +464,14 @@ impl App {
         Ok(true)
     }
 
-    fn handle_action(&mut self) -> Result<bool> {
+    async fn handle_action(&mut self) -> Result<bool> {
         match &self.current_action {
             Action::None => return Ok(false),
             Action::NowPlaying(item) => {
-                self.jellyfin.play_media(item)?;
+                self.jellyfin.play_media(item).await?;
             }
             Action::RefreshingCache => {
-                self.jellyfin.refresh_cache()?;
+                self.jellyfin.refresh_cache().await?;
                 if self.query.is_empty() {
                     self.search();
                 }

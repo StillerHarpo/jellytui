@@ -12,8 +12,8 @@ use std::time::Duration;
 use anyhow::Result;
 use directories::BaseDirs;
 use hostname;
-use reqwest::blocking::{Client, RequestBuilder, Response};
 use reqwest::StatusCode;
+use reqwest::{Client, RequestBuilder, Response};
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
@@ -136,7 +136,7 @@ impl MediaItem {
 }
 
 impl Jellyfin {
-    pub fn new(
+    pub async fn new(
         base_path: Option<&Path>,
         config: Config,
         opt_terminal: &mut Option<&mut DefaultTerminal>,
@@ -187,7 +187,7 @@ impl Jellyfin {
         }
         log!("Authenticating...");
 
-        match jellyfin.authenticate() {
+        match jellyfin.authenticate().await {
             Ok(_) => {}
             Err(e) => {
                 eprintln!("Failed to authenticate: {}", e);
@@ -210,14 +210,14 @@ impl Jellyfin {
             }
         }
         log!("Fetching media... this may take a while on the first run");
-        jellyfin.fetch_all_media()?;
+        jellyfin.fetch_all_media().await?;
         log!("Fetching home sections...");
-        jellyfin.fetch_home_sections()?;
+        jellyfin.fetch_home_sections().await?;
 
         Ok(jellyfin)
     }
 
-    fn request(&mut self, request: RequestBuilder) -> Result<Response> {
+    async fn request(&mut self, request: RequestBuilder) -> Result<Response> {
         let response = request
             .try_clone()
             .expect("Failed to clone request")
@@ -225,23 +225,25 @@ impl Jellyfin {
                 "X-MediaBrowser-Token",
                 &self.auth.as_ref().unwrap().access_token,
             )
-            .send()?;
+            .send()
+            .await?;
 
         if response.status() != StatusCode::UNAUTHORIZED {
             return Ok(response);
         }
 
-        self.authenticate()?;
+        self.authenticate().await?;
 
         Ok(request
             .header(
                 "X-MediaBrowser-Token",
                 &self.auth.as_ref().unwrap().access_token,
             )
-            .send()?)
+            .send()
+            .await?)
     }
 
-    fn authenticate(&mut self) -> Result<()> {
+    async fn authenticate(&mut self) -> Result<()> {
         let device_name = hostname::get()
             .map(|h| h.to_string_lossy().to_string())
             .unwrap_or_else(|_| "unknown-device".to_string());
@@ -258,7 +260,7 @@ impl Jellyfin {
                 device_name
             ))
             .json(&auth_request)
-            .send()?;
+            .send().await?;
 
         match response.status() {
             StatusCode::UNAUTHORIZED => {
@@ -270,12 +272,12 @@ impl Jellyfin {
             _ => {}
         }
 
-        self.auth = Some(response.json::<AuthResponse>()?);
+        self.auth = Some(response.json::<AuthResponse>().await?);
 
         Ok(())
     }
 
-    fn fetch_all_media(&mut self) -> Result<()> {
+    async fn fetch_all_media(&mut self) -> Result<()> {
         if let Ok(cached) = fs::read_to_string(&self.cache_path) {
             if let Ok(items) = serde_json::from_str::<HashMap<String, MediaItem>>(&cached) {
                 self.items = items;
@@ -301,8 +303,10 @@ impl Jellyfin {
                         ("SortBy", "SortName"),
                         ("SortOrder", "Ascending"),
                     ]),
-            )?
-            .json::<JellyfinItemsResponse>()?
+            )
+            .await?
+            .json::<JellyfinItemsResponse>()
+            .await?
             .items
             .into_iter()
             .map(|item| (item.id.clone(), item))
@@ -313,7 +317,7 @@ impl Jellyfin {
         Ok(())
     }
 
-    fn fetch_home_sections(&mut self) -> Result<()> {
+    async fn fetch_home_sections(&mut self) -> Result<()> {
         let user_id = self.auth.clone().unwrap().user.id;
 
         self.continue_watching = self
@@ -330,8 +334,10 @@ impl Jellyfin {
                             "Path,Overview,CommunityRating,CriticRating,RunTimeTicks",
                         ),
                     ]),
-            )?
-            .json::<JellyfinItemsResponse>()?
+            )
+            .await?
+            .json::<JellyfinItemsResponse>()
+            .await?
             .items;
 
         self.next_up = self
@@ -346,8 +352,10 @@ impl Jellyfin {
                             "Path,Overview,CommunityRating,CriticRating,RunTimeTicks",
                         ),
                     ]),
-            )?
-            .json::<JellyfinItemsResponse>()?
+            )
+            .await?
+            .json::<JellyfinItemsResponse>()
+            .await?
             .items;
 
         self.latest_added = self
@@ -368,8 +376,10 @@ impl Jellyfin {
                         ("SortOrder", "Descending"),
                         ("Recursive", "true"),
                     ]),
-            )?
-            .json::<JellyfinItemsResponse>()?
+            )
+            .await?
+            .json::<JellyfinItemsResponse>()
+            .await?
             .items;
 
         Ok(())
@@ -397,7 +407,7 @@ impl Jellyfin {
         episodes
     }
 
-    pub fn play_media(&mut self, item: &MediaItem) -> Result<Option<MediaItem>> {
+    pub async fn play_media(&mut self, item: &MediaItem) -> Result<Option<MediaItem>> {
         let playback_info = self
             .request(
                 self.client
@@ -419,8 +429,10 @@ impl Jellyfin {
                             "TranscodingProfiles": []
                         }
                     })),
-            )?
-            .json::<PlaybackInfo>()?;
+            )
+            .await?
+            .json::<PlaybackInfo>()
+            .await?;
 
         let source = playback_info
             .media_sources
@@ -430,8 +442,10 @@ impl Jellyfin {
         let position_url = format!("{}/UserItems/{}/UserData", self.config.server_url, item.id);
 
         let position_ticks = self
-            .request(self.client.get(&position_url))?
-            .json::<serde_json::Value>()?
+            .request(self.client.get(&position_url))
+            .await?
+            .json::<serde_json::Value>()
+            .await?
             .get("PlaybackPositionTicks")
             .and_then(|v| v.as_i64())
             .unwrap_or(0);
@@ -511,14 +525,14 @@ impl Jellyfin {
         // wait for mpv to start
         std::thread::sleep(Duration::from_secs(2));
 
-        let next = self.monitor_playback(item, &socket_path);
+        let next = self.monitor_playback(item, &socket_path).await;
 
         std::fs::remove_file(socket_path)?;
 
         next
     }
 
-    fn monitor_playback(
+    async fn monitor_playback(
         &mut self,
         item: &MediaItem,
         socket_path: &String,
@@ -580,18 +594,21 @@ impl Jellyfin {
                                 continue;
                             };
 
-                            if let Err(e) = self.request(
-                                self.client
-                                    .post(format!(
-                                        "{}/Sessions/Playing/Progress",
-                                        self.config.server_url
-                                    ))
-                                    .json(&serde_json::json!({
-                                        "ItemId": item.id,
-                                        "PositionTicks": last_position,
-                                        "IsPaused": paused
-                                    })),
-                            ) {
+                            if let Err(e) = self
+                                .request(
+                                    self.client
+                                        .post(format!(
+                                            "{}/Sessions/Playing/Progress",
+                                            self.config.server_url
+                                        ))
+                                        .json(&serde_json::json!({
+                                            "ItemId": item.id,
+                                            "PositionTicks": last_position,
+                                            "IsPaused": paused
+                                        })),
+                                )
+                                .await
+                            {
                                 eprintln!("Failed to update pause state: {}", e);
                             }
                         }
@@ -612,17 +629,20 @@ impl Jellyfin {
                                 continue;
                             }
 
-                            if let Err(e) = self.request(
-                                self.client
-                                    .post(format!(
-                                        "{}/Sessions/Playing/Progress",
-                                        self.config.server_url
-                                    ))
-                                    .json(&serde_json::json!({
-                                        "ItemId": item.id,
-                                        "PositionTicks": position_ticks
-                                    })),
-                            ) {
+                            if let Err(e) = self
+                                .request(
+                                    self.client
+                                        .post(format!(
+                                            "{}/Sessions/Playing/Progress",
+                                            self.config.server_url
+                                        ))
+                                        .json(&serde_json::json!({
+                                            "ItemId": item.id,
+                                            "PositionTicks": position_ticks
+                                        })),
+                                )
+                                .await
+                            {
                                 eprintln!("Failed to update progress: {}", e);
                             }
 
@@ -651,28 +671,31 @@ impl Jellyfin {
             }
         }
 
-        if let Err(e) = self.request(
-            self.client
-                .post(format!(
-                    "{}/Sessions/Playing/Stopped",
-                    self.config.server_url
-                ))
-                .json(&serde_json::json!({
-                    "ItemId": item.id,
-                    "PositionTicks": last_position
-                })),
-        ) {
+        if let Err(e) = self
+            .request(
+                self.client
+                    .post(format!(
+                        "{}/Sessions/Playing/Stopped",
+                        self.config.server_url
+                    ))
+                    .json(&serde_json::json!({
+                        "ItemId": item.id,
+                        "PositionTicks": last_position
+                    })),
+            )
+            .await
+        {
             eprintln!("Failed to update progress: {}", e);
         }
 
         return Ok(None);
     }
 
-    pub fn refresh_cache(&mut self) -> Result<()> {
+    pub async fn refresh_cache(&mut self) -> Result<()> {
         fs::remove_file(&self.cache_path)?;
 
-        self.fetch_all_media()?;
-        self.fetch_home_sections()?;
+        self.fetch_all_media().await?;
+        self.fetch_home_sections().await?;
 
         Ok(())
     }
