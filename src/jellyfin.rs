@@ -1,3 +1,5 @@
+use ratatui::widgets::Paragraph;
+use ratatui::{layout::Rect, DefaultTerminal, Frame};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{Read, Write};
@@ -134,7 +136,12 @@ impl MediaItem {
 }
 
 impl Jellyfin {
-    pub fn new(base_path: Option<&Path>) -> Result<Self> {
+    pub fn new(
+        base_path: Option<&Path>,
+        config: Config,
+        opt_terminal: &mut Option<&mut DefaultTerminal>,
+        render_outer: fn(&mut Frame) -> Rect,
+    ) -> Result<Self> {
         // cache directory init
         let cache_path = base_path
             .map(|p| p.join("cache.json"))
@@ -150,8 +157,6 @@ impl Jellyfin {
             std::fs::create_dir_all(parent)?;
         }
 
-        let config = Config::load(base_path)?;
-
         let mut jellyfin = Jellyfin {
             items: HashMap::new(),
             continue_watching: Vec::new(),
@@ -165,15 +170,30 @@ impl Jellyfin {
             mpv_processes: Arc::new(Mutex::new(Vec::new())),
             cache_path,
         };
+        macro_rules! log {
+            ($txt:expr) => {
+                match opt_terminal {
+                    Some(terminal) => {
+                        terminal.draw(|frame| {
+                            let inner_area = render_outer(frame);
+                            frame.render_widget(Paragraph::new($txt), inner_area);
+                        })?;
+                    }
+                    None => {
+                        println!($txt);
+                    }
+                }
+            };
+        }
+        log!("Authenticating...");
 
-        println!("Authenticating...");
         match jellyfin.authenticate() {
             Ok(_) => {}
             Err(e) => {
                 eprintln!("Failed to authenticate: {}", e);
 
                 if !jellyfin.config.is_new {
-                    print!("Would you like to delete the current configuration? (y/n):\n> ");
+                    log!("Would you like to delete the current configuration? (y/n):\n> ");
 
                     std::io::stdout().flush()?;
                     let mut delete = String::new();
@@ -183,15 +203,15 @@ impl Jellyfin {
                         std::process::exit(1);
                     }
 
-                    println!("Deleting configuration... run again to reconfigure");
+                    log!("Deleting configuration... run again to reconfigure");
                 }
                 Config::delete(base_path)?;
                 std::process::exit(1);
             }
         }
-        println!("Fetching media... this may take a while on the first run");
+        log!("Fetching media... this may take a while on the first run");
         jellyfin.fetch_all_media()?;
-        println!("Fetching home sections...");
+        log!("Fetching home sections...");
         jellyfin.fetch_home_sections()?;
 
         Ok(jellyfin)

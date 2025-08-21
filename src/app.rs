@@ -11,12 +11,11 @@ use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 use itertools::{enumerate, Itertools};
 use ratatui::{
-    backend::CrosstermBackend,
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
-    Frame, Terminal,
+    DefaultTerminal, Frame,
 };
 
 use crate::jellyfin::{Jellyfin, MediaItem};
@@ -135,15 +134,18 @@ impl App {
         Ok(app)
     }
 
-    pub fn run(&mut self) -> Result<()> {
+    pub fn run(
+        &mut self,
+        terminal: &mut DefaultTerminal,
+        render_outer: fn(&mut Frame) -> Rect,
+    ) -> Result<()> {
         // init terminal
         enable_raw_mode()?;
         let mut stdout = io::stdout();
         execute!(stdout, EnterAlternateScreen)?;
-        let mut terminal = Terminal::new(CrosstermBackend::new(stdout)).unwrap();
 
         loop {
-            self.draw(&mut terminal)?;
+            self.draw(terminal, render_outer)?;
             if self.handle_action()? {
                 continue;
             }
@@ -247,12 +249,17 @@ impl App {
             .collect();
     }
 
-    fn draw(&mut self, terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> {
+    fn draw(
+        &mut self,
+        terminal: &mut DefaultTerminal,
+        render_outer: fn(&mut Frame) -> Rect,
+    ) -> Result<()> {
         terminal.draw(|frame| {
+            let inner_area = render_outer(frame);
             let main_chunks = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
-                .split(frame.area());
+                .split(inner_area);
 
             self.draw_media_panel(frame, main_chunks[0], self.selected_item());
 
@@ -289,7 +296,7 @@ impl App {
                 }
             }
 
-            self.draw_action(frame);
+            self.draw_action(frame, inner_area);
         })?;
 
         Ok(())
@@ -725,7 +732,7 @@ impl App {
         frame.render_widget(widget, chunk);
     }
 
-    fn draw_action(&mut self, frame: &mut Frame) {
+    fn draw_action(&mut self, frame: &mut Frame, inner_area: Rect) {
         let popup_text;
         let title;
 
@@ -751,14 +758,13 @@ impl App {
             }
         }
 
-        let area = frame.area();
-        let popup_width = 60.min(area.width - 4);
-        let popup_height = 6.min(area.height - 4);
+        let popup_width = 60.min(inner_area.width - 4);
+        let popup_height = 6.min(inner_area.height - 4);
 
         let popup_area = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Length((area.width - popup_width) / 2),
+                Constraint::Length((inner_area.width - popup_width) / 2),
                 Constraint::Length(popup_width),
                 Constraint::Min(0),
             ])
@@ -766,11 +772,11 @@ impl App {
                 Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
-                        Constraint::Length((area.height - popup_height) / 2),
+                        Constraint::Length((inner_area.height - popup_height) / 2),
                         Constraint::Length(popup_height),
                         Constraint::Min(0),
                     ])
-                    .split(area)[1],
+                    .split(inner_area)[1],
             );
 
         let popup = Paragraph::new(popup_text)

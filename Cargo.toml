@@ -31,6 +31,8 @@ lto = true
 codegen-units = 1
 panic = "abort"
 
+[lib]
+
 [[bin]]
 name = "jellytui"
 path = "src/main.rs"

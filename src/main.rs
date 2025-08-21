@@ -1,15 +1,11 @@
 use std::path::Path;
 
-mod app;
-mod config;
-mod jellyfin;
+use jellytui::{config::Config, run_app};
 
 use anyhow::Result;
 use check_latest::check_max;
 use clap::Parser;
-
-use app::App;
-use jellyfin::Jellyfin;
+use ratatui::{self, Frame};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -25,11 +21,9 @@ fn main() -> Result<()> {
     }
 
     let path = args.base_path.as_ref().map(|p| Path::new(p));
-    let jellyfin = Jellyfin::new(path)?;
+    let config = Config::load(path)?;
 
-    let mut app = App::new(jellyfin)?;
-
-    app.run()?;
+    run_app(Option::None, path, config, |frame: &mut Frame| frame.area())?;
 
     Ok(())
 }
