@@ -156,12 +156,6 @@ impl App {
 
         // cleanup
         self.jellyfin.cleanup()?;
-        disable_raw_mode()?;
-        execute!(
-            terminal.backend_mut(),
-            LeaveAlternateScreen,
-            DisableMouseCapture
-        )?;
 
         Ok(())
     }

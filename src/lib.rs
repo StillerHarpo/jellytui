@@ -4,6 +4,11 @@ mod jellyfin;
 
 use anyhow::Result;
 use app::App;
+use crossterm::{
+    event::DisableMouseCapture,
+    execute,
+    terminal::{disable_raw_mode, LeaveAlternateScreen},
+};
 use jellyfin::Jellyfin;
 use std::path::Path;
 
@@ -20,11 +25,20 @@ pub async fn run_app(
 
     let mut app = App::new(jellyfin)?;
 
-    let mut terminal = match opt_terminal {
-        Some(terminal) => terminal,
-        None => &mut ratatui::init(),
+    let (leave, mut terminal) = match opt_terminal {
+        Some(terminal) => (false, terminal),
+        None => (true, &mut ratatui::init()),
     };
     app.run(&mut terminal, &render_outer).await?;
+
+    if leave {
+        disable_raw_mode()?;
+        execute!(
+            terminal.backend_mut(),
+            LeaveAlternateScreen,
+            DisableMouseCapture
+        )?;
+    }
 
     Ok(())
 }
