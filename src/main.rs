@@ -3,7 +3,6 @@ use std::path::Path;
 use jellytui::{config::Config, run_app};
 
 use anyhow::Result;
-use check_latest::check_max;
 use clap::Parser;
 use ratatui::{self, Frame};
 

@@ -8,7 +8,6 @@ repository = "https://github.com/tyrantlink/jellytui"
 
 [dependencies]
 anyhow = "1.0"
-check-latest = "1.0"
 chrono = "0.4"
 crossterm = "0.28"
 directories = "5.0"
