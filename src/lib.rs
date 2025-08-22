@@ -7,9 +7,10 @@ use app::App;
 use crossterm::{
     event::DisableMouseCapture,
     execute,
-    terminal::{disable_raw_mode, LeaveAlternateScreen},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use jellyfin::Jellyfin;
+use std::io;
 use std::path::Path;
 
 use crate::config::Config;
@@ -25,13 +26,21 @@ pub async fn run_app(
 
     let mut app = App::new(jellyfin)?;
 
-    let (leave, mut terminal) = match opt_terminal {
+    let (terminal_new, mut terminal) = match opt_terminal {
         Some(terminal) => (false, terminal),
         None => (true, &mut ratatui::init()),
     };
+    if terminal_new {
+        // init terminal
+        enable_raw_mode()?;
+        let mut stdout = io::stdout();
+        execute!(stdout, EnterAlternateScreen)?;
+    }
+
     app.run(&mut terminal, &render_outer).await?;
 
-    if leave {
+    if terminal_new {
+        // cleanup
         disable_raw_mode()?;
         execute!(
             terminal.backend_mut(),

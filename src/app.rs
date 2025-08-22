@@ -1,12 +1,7 @@
-use std::io;
 use std::time::Duration;
 
 use anyhow::Result;
-use crossterm::{
-    event::{self, poll, DisableMouseCapture, Event, KeyCode},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
+use crossterm::event::{self, poll, Event, KeyCode};
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 use itertools::{enumerate, Itertools};
@@ -139,11 +134,6 @@ impl App {
         terminal: &mut DefaultTerminal,
         render_outer: impl Fn(&mut Frame) -> Rect,
     ) -> Result<()> {
-        // init terminal
-        enable_raw_mode()?;
-        let mut stdout = io::stdout();
-        execute!(stdout, EnterAlternateScreen)?;
-
         loop {
             self.draw(terminal, &render_outer)?;
             if self.handle_action().await? {
@@ -154,7 +144,6 @@ impl App {
             }
         }
 
-        // cleanup
         self.jellyfin.cleanup()?;
 
         Ok(())
