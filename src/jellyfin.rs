@@ -221,10 +221,7 @@ impl Jellyfin {
         let response = request
             .try_clone()
             .expect("Failed to clone request")
-            .header(
-                "X-MediaBrowser-Token",
-                &self.auth.as_ref().unwrap().access_token,
-            )
+            .query(&[("ApiKey", &self.auth.as_ref().unwrap().access_token)])
             .send()
             .await?;
 
@@ -235,10 +232,7 @@ impl Jellyfin {
         self.authenticate().await?;
 
         Ok(request
-            .header(
-                "X-MediaBrowser-Token",
-                &self.auth.as_ref().unwrap().access_token,
-            )
+            .query(&[("ApiKey", &self.auth.as_ref().unwrap().access_token)])
             .send()
             .await?)
     }
@@ -255,7 +249,7 @@ impl Jellyfin {
 
         let response = self.client
             .post(format!("{}/Users/AuthenticateByName", self.config.server_url))
-            .header("X-Emby-Authorization", format!(
+            .header("Authorization", format!(
                 "MediaBrowser Client=\"jellytui\", Device=\"{}\", DeviceId=\"tui\", Version=\"1.0.0\"",
                 device_name
             ))
@@ -323,11 +317,9 @@ impl Jellyfin {
         self.continue_watching = self
             .request(
                 self.client
-                    .get(format!(
-                        "{}/Users/{}/Items/Resume",
-                        self.config.server_url, user_id
-                    ))
+                    .get(format!("{}/UserItems/Resume", self.config.server_url))
                     .query(&[
+                        ("UserId", user_id.as_str()),
                         ("Limit", "12"),
                         (
                             "Fields",
@@ -486,7 +478,7 @@ impl Jellyfin {
             .arg(format!("--length={}", runtime_seconds))
             .arg(format!("--force-media-title={}", title))
             .arg(format!(
-                "--http-header-fields=X-MediaBrowser-Token: {}",
+                "--http-header-fields=ApiKey: {}",
                 auth.access_token
             ))
             .arg(format!("--input-ipc-server={}", socket_path));
